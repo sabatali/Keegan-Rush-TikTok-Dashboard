@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Service account credentials (NEVER commit these)
+*.json
+!package.json
+!package-lock.json
+feisty-reporter-*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
