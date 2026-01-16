@@ -1,14 +1,14 @@
 # TikTok Dashboard
 
-A frontend-only React dashboard that connects directly to Google Sheets using the Google Sheets API. No backend required!
+A frontend-only React dashboard that uses Supabase for authentication and data.
 
 ## Features
 
-- 📊 **Videos Dashboard**: View and analyze video data with sorting and filtering
-- 👤 **Profile Management**: Add and remove TikTok profile URLs
-- 🔄 **Real-time Sync**: All changes sync immediately to Google Sheets
+- 📊 **Videos Dashboard**: Group videos into weekly buckets with upload status
+- 👤 **Creator Tabs**: Switch between creators quickly
+- ✅ **Upload Status**: Toggle uploaded status per video
 - 🎨 **Modern UI**: Built with React and Tailwind CSS
-- 🔐 **OAuth Integration**: Secure authentication for write operations
+- 🔐 **Supabase Auth**: Email + password login for admins
 
 ## Quick Start
 
@@ -22,19 +22,18 @@ A frontend-only React dashboard that connects directly to Google Sheets using th
    npm run dev
    ```
 
-3. **Configure Google Sheets API:**
+3. **Configure Supabase:**
    - See [SETUP.md](./SETUP.md) for detailed setup instructions
    - You'll need:
-     - Google API Key
-     - Spreadsheet ID
-     - OAuth Client ID (optional, for write operations)
+     - SUPABASE_URL
+     - SUPABASE_ANON_KEY
 
 ## Tech Stack
 
 - **React** - UI framework
 - **Tailwind CSS** - Styling
 - **React Router** - Navigation
-- **Google Sheets API** - Data source
+- **Supabase** - Auth + database
 - **Vite** - Build tool
 
 ## Project Structure
@@ -42,12 +41,12 @@ A frontend-only React dashboard that connects directly to Google Sheets using th
 ```
 src/
 ├── components/
-│   ├── AuthPage.jsx      # Initial setup and authentication
+│   ├── LoginPage.jsx     # Admin login page
 │   ├── Navigation.jsx    # Navigation bar
-│   ├── ProfilesPage.jsx  # Profile management
+│   ├── AccountPage.jsx   # Change password form
 │   └── VideosPage.jsx    # Videos dashboard
 ├── services/
-│   └── googleSheets.js   # Google Sheets API integration
+│   └── supabaseClient.js # Supabase client
 ├── App.jsx               # Main app component with routing
 └── main.jsx              # Entry point
 ```

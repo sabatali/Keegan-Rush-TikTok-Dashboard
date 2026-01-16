@@ -1,41 +1,18 @@
 # Important Setup Instructions
 
-## ⚠️ Critical: Share Your Spreadsheet
+## ⚠️ Critical: Supabase Environment Variables
 
-Before the dashboard can access your Google Sheets, you **MUST** share the spreadsheet with the service account email:
+Before the dashboard can access Supabase, you **MUST** set:
 
-**Service Account Email:**
 ```
-tiktok-downloading-project@feisty-reporter-443010-t9.iam.gserviceaccount.com
+SUPABASE_URL=your-project-url
+SUPABASE_ANON_KEY=your-anon-key
 ```
 
-### How to Share:
+## Verify Setup
 
-1. Open your Google Sheets: https://docs.google.com/spreadsheets/d/1cr_N4vN2VJaKJhGr9H6dyeySz-nVwIIyCOyRaNnv4w0/edit
+- ✅ Supabase anon key is set (not service role)
+- ✅ RLS policies allow authenticated admin access
+- ✅ Tables `creators` and `videos` exist
 
-2. Click the **"Share"** button (top right)
-
-3. In the "Add people and groups" field, paste:
-   ```
-   tiktok-downloading-project@feisty-reporter-443010-t9.iam.gserviceaccount.com
-   ```
-
-4. Set permission to **"Editor"** (required for read and write operations)
-
-5. Click **"Send"** (you can uncheck "Notify people" since it's a service account)
-
-### Verify Setup:
-
-- ✅ Spreadsheet is shared with the service account email
-- ✅ Service account has "Editor" permission
-- ✅ Google Sheets API is enabled in Google Cloud Console
-- ✅ Sheets are named exactly: `video_info` and `profiles_url`
-
-## Current Configuration
-
-- **Spreadsheet ID:** `1cr_N4vN2VJaKJhGr9H6dyeySz-nVwIIyCOyRaNnv4w0`
-- **Spreadsheet Name:** Keegan Rush TikTok
-- **Service Account:** Pre-configured in `src/config/serviceAccount.js`
-
-The dashboard will automatically connect when you run it - no credentials needed!
-
+The dashboard will connect to Supabase at runtime using these variables.
