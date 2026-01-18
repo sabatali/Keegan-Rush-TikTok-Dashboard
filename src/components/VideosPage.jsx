@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 
-const WEEK_SIZE = 35;
-
 const VideosPage = () => {
   const [creators, setCreators] = useState([]);
   const [selectedCreator, setSelectedCreator] = useState(null);
@@ -11,6 +9,8 @@ const VideosPage = () => {
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [error, setError] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState({});
+  const [updatingFacebook, setUpdatingFacebook] = useState({});
+  const [selectedVideo, setSelectedVideo] = useState(null);
 
   const loadCreators = useCallback(async () => {
     setLoadingCreators(true);
@@ -25,7 +25,7 @@ const VideosPage = () => {
     if (creatorsError) {
       setError(creatorsError.message || 'Failed to load creators.');
       setCreators([]);
-      setSelectedCreatorId(null);
+      setSelectedCreator(null);
     } else {
       const nextCreators = data || [];
       setCreators(nextCreators);
@@ -56,11 +56,9 @@ const VideosPage = () => {
 
     const { data, error: videosError } = await supabase
       .from('videos')
-      .select(
-        'id, title, upload_date, drive_url, upload_status, video_url, uploader, uploader_id'
-      )
+      .select('*')
       .eq(creatorSelection.column, creatorSelection.value)
-      .order('upload_date', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (videosError) {
       setError(videosError.message || 'Failed to load videos.');
@@ -80,16 +78,17 @@ const VideosPage = () => {
     loadVideos(selectedCreator);
   }, [loadVideos, selectedCreator]);
 
-  const weeklyBuckets = useMemo(() => {
-    const buckets = [];
-    for (let i = 0; i < videos.length; i += WEEK_SIZE) {
-      buckets.push({
-        week: Math.floor(i / WEEK_SIZE) + 1,
-        items: videos.slice(i, i + WEEK_SIZE),
-      });
-    }
-    return buckets;
-  }, [videos]);
+  const columns = useMemo(
+    () => [
+      { key: 'title', label: 'Title' },
+      { key: 'uploader', label: 'Uploader' },
+      { key: 'upload_date', label: 'Upload Date' },
+      { key: 'view_count', label: 'Views' },
+      { key: 'like_count', label: 'Likes' },
+      { key: 'drive_url', label: 'Drive URL' },
+    ],
+    []
+  );
 
   const handleToggleUploadStatus = async (videoId, nextStatus) => {
     const previous = videos.find((video) => video.id === videoId)?.upload_status;
@@ -127,6 +126,61 @@ const VideosPage = () => {
       day: 'numeric',
       year: 'numeric',
     });
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return dateString;
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const formatValue = (key, value) => {
+    if (value === null || value === undefined || value === '') return 'N/A';
+    if (key === 'upload_status') return value ? 'Yes' : 'No';
+    if (key === 'upload_on_facebook') return value ? 'Yes' : 'No';
+    if (key === 'upload_date') return formatDate(value);
+    if (key === 'create_time' || key === 'created_at') return formatDateTime(value);
+    return value;
+  };
+
+  const truncateTitle = (title) => {
+    if (!title) return 'Untitled';
+    const words = String(title).trim().split(/\s+/);
+    return words.length <= 3 ? words.join(' ') : `${words.slice(0, 3).join(' ')}...`;
+  };
+
+  const handleToggleFacebookStatus = async (videoId, nextStatus) => {
+    const previous = videos.find((video) => video.id === videoId)?.upload_on_facebook;
+
+    setVideos((prev) =>
+      prev.map((video) =>
+        video.id === videoId ? { ...video, upload_on_facebook: nextStatus } : video
+      )
+    );
+    setUpdatingFacebook((prev) => ({ ...prev, [videoId]: true }));
+
+    const { error: updateError } = await supabase
+      .from('videos')
+      .update({ upload_on_facebook: nextStatus })
+      .eq('id', videoId);
+
+    if (updateError) {
+      setVideos((prev) =>
+        prev.map((video) =>
+          video.id === videoId ? { ...video, upload_on_facebook: previous } : video
+        )
+      );
+      setError(updateError.message || 'Failed to update Facebook upload status.');
+    }
+
+    setUpdatingFacebook((prev) => ({ ...prev, [videoId]: false }));
   };
 
   if (loadingCreators) {
@@ -209,75 +263,169 @@ const VideosPage = () => {
             No videos found for this creator.
           </div>
         ) : (
-          <div className="space-y-6">
-            {weeklyBuckets.map((bucket) => (
-              <div
-                key={`week-${bucket.week}`}
-                className="bg-white shadow rounded-lg border border-gray-100"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-4 p-4">
-                  <div className="text-sm font-semibold text-gray-600 uppercase">
-                    WEEK {bucket.week}
-                  </div>
-                  <div className="space-y-4">
-                    {bucket.items.map((video) => (
-                      <div
-                        key={video.id}
-                        className="flex flex-col gap-3 border border-gray-100 rounded-lg p-4"
+          <div className="bg-white shadow rounded-lg border border-gray-100">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+                  <tr>
+                    {columns.map((column) => (
+                      <th
+                        key={column.key}
+                        className="px-4 py-3 text-left whitespace-nowrap"
                       >
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {video.title || 'Untitled'}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Uploaded: {formatDate(video.upload_date)}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <label className="flex items-center gap-2 text-sm text-gray-700">
-                              <input
-                                type="checkbox"
-                                checked={!!video.upload_status}
-                                onChange={(event) =>
-                                  handleToggleUploadStatus(video.id, event.target.checked)
-                                }
-                                disabled={!!updatingStatus[video.id]}
-                                className="h-4 w-4 text-blue-600 border-gray-300 rounded"
-                              />
-                              Uploaded
-                            </label>
-                            {video.drive_url && (
+                        {column.label}
+                      </th>
+                    ))}
+                    <th className="px-4 py-3 text-left whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {videos.map((video) => (
+                    <tr key={video.id} className="align-top">
+                      {columns.map((column) => {
+                        const value = formatValue(column.key, video[column.key]);
+                        if (column.key === 'title') {
+                          return (
+                            <td key={column.key} className="px-4 py-3">
+                              {truncateTitle(video.title)}
+                            </td>
+                          );
+                        }
+                        if (column.key === 'video_url' && video.video_url) {
+                          return (
+                            <td key={column.key} className="px-4 py-3">
+                              <a
+                                href={video.video_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline"
+                              >
+                                Open
+                              </a>
+                            </td>
+                          );
+                        }
+                        if (column.key === 'direct_play_url' && video.direct_play_url) {
+                          return (
+                            <td key={column.key} className="px-4 py-3">
+                              <a
+                                href={video.direct_play_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline"
+                              >
+                                Open
+                              </a>
+                            </td>
+                          );
+                        }
+                        if (column.key === 'drive_url' && video.drive_url) {
+                          return (
+                            <td key={column.key} className="px-4 py-3">
                               <a
                                 href={video.drive_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="px-3 py-1 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800"
+                                className="text-blue-600 hover:underline"
                               >
-                                Open Drive
+                                Open
                               </a>
-                            )}
-                          </div>
-                        </div>
-                        {video.video_url && (
-                          <a
-                            href={video.video_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:underline"
+                            </td>
+                          );
+                        }
+                        return (
+                          <td key={column.key} className="px-4 py-3 whitespace-nowrap">
+                            {value}
+                          </td>
+                        );
+                      })}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex flex-col gap-2">
+                          <label className="flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={!!video.upload_status}
+                              onChange={(event) =>
+                                handleToggleUploadStatus(video.id, event.target.checked)
+                              }
+                              disabled={!!updatingStatus[video.id]}
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                            />
+                            Uploaded
+                          </label>
+                          <label className="flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={!!video.upload_on_facebook}
+                              onChange={(event) =>
+                                handleToggleFacebookStatus(video.id, event.target.checked)
+                              }
+                              disabled={!!updatingFacebook[video.id]}
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                            />
+                            Upload on Facebook
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedVideo(video)}
+                            className="px-3 py-1 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800"
                           >
-                            View video
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
+                            View details
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
+      {selectedVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[85vh] overflow-y-auto p-6">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {selectedVideo.title || 'Video details'}
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Created: {formatDateTime(selectedVideo.created_at)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedVideo(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Close
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              {Object.entries(selectedVideo).map(([key, value]) => (
+                <div key={key} className="border border-gray-100 rounded-md p-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase">{key}</p>
+                  {String(key).includes('url') && value ? (
+                    <a
+                      href={value}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 break-all hover:underline"
+                    >
+                      {value}
+                    </a>
+                  ) : (
+                    <p className="text-gray-800 break-all">
+                      {formatValue(key, value)}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
